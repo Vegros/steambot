@@ -18,10 +18,10 @@ class Handler:
             print(e)
             return {}
 
-    def convert_to_euros(self, amount, from_currency):
-        c = CurrencyConverter()
-        euros = c.convert(amount, 'EUR', from_currency)
-        return euros
+    # def convert_to_euros(self, amount, from_currency):
+    #     c = CurrencyConverter()
+    #     euros = c.convert(amount, 'EUR', from_currency)
+    #     return euros
 
     def get_dev(self):
         if self.response:
@@ -40,12 +40,12 @@ class Handler:
             eur = value[:-2]
             cents = value[-2:]
             final_price = float(eur + "." + cents)
-            euros = self.convert_to_euros(final_price, currency)
+            # euros = self.convert_to_euros(final_price, currency)
 
             # check discount
             discount = str(self.response.get("price_overview", {}).get("discount_percent", None))
             if discount != '0':
                 self.is_on_discount = True
 
-            return f"EUR {euros:.2f}"
+            return f"{currency} {final_price}"
         return 'json file not found'

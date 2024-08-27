@@ -28,7 +28,7 @@ async def on_ready():
 
 @bot.tree.command(name='hello')
 async def hello(interaction: discord.Interaction):
-    await interaction.response.send_message(f"Hey {interaction.user.mention}")
+    await interaction.response.send_message(f"Hey {interaction.user.mention}, how are you doing")
 
 
 @bot.tree.command(name='listfiles')
@@ -48,21 +48,21 @@ async def list_files(interaction: discord.Interaction):
 
 
 @bot.tree.command(name='dev')
-@app_commands.describe(game_name="type your game_name")
+@app_commands.describe(game_name="type your game_name (type /listfiles for game_name file)")
 async def dev(interaction: discord.Interaction, game_name: str):
     handler = Handler(game_name)
     await interaction.response.send_message(f'The developer of this game is: {handler.get_dev()}')
 
 
 @bot.tree.command(name='price')
-@app_commands.describe(game_name="type your game_name")
+@app_commands.describe(game_name="type your game_name (type /listfiles for game_name file)")
 async def price(interaction: discord.Interaction, game_name: str):
     handler = Handler(game_name)
     await interaction.response.send_message(f'The price of this game is: {handler.get_price()}')
 
 
 @bot.tree.command(name='summary')
-@app_commands.describe(game_name="type your game_name")
+@app_commands.describe(game_name="type your game_name (type /listfiles for game_name file)")
 async def summary(interaction: discord.Interaction, game_name: str):
     handler = Handler(game_name)
     await interaction.response.send_message(f' {handler.get_summary()}')
@@ -77,7 +77,7 @@ async def discount(interaction: discord.Interaction, game_name: str):
 
 
 @bot.tree.command(name='add')
-@app_commands.describe(game_name="type your game_name")
+@app_commands.describe(game_name="type your game name")
 async def add(interaction: discord.Interaction, game_name: str):
     await interaction.response.defer()
     try:
@@ -87,31 +87,34 @@ async def add(interaction: discord.Interaction, game_name: str):
             await interaction.followup.send(f"No games found for '{game_name}'.")
             return
 
-        game_options = "\n".join([f"{game['id']}: {game['game_name']}" for game in games_list])
-        await interaction.followup.send(
-            f"Games found:\n{game_options}\nPlease type the ID of the game you want to choose:")
+        options = [
+            discord.SelectOption(label=game['game_name'], value=str(game['id']))
+            for game in games_list
+        ]
 
-        def check(msg):
-            return msg.author == interaction.user and msg.channel == interaction.channel
+        select = discord.ui.Select(placeholder="Choose a game...", options=options, min_values=1, max_values=1)
 
-        try:
-            msg = await bot.wait_for("message", check=check, timeout=30)  # 30 seconds timeout
-            selected_id = int(msg.content.strip())
-
+        async def select_callback(select_interaction: discord.Interaction):
+            selected_id = int(select_interaction.data['values'][0])
             selected_game = next((game for game in games_list if game['id'] == selected_id), None)
 
             if selected_game:
                 formatted_name = re.sub(r'_+', '_', selected_game['game_name'].replace('-', '_'))
                 api.fetch_game_api(selected_game['appid'], formatted_name)
 
-                await interaction.followup.send(f"game added: {formatted_name}")
+                await select_interaction.response.send_message(f"Game added: {formatted_name}")
             else:
-                await interaction.followup.send("Invalid ID. Please try again.")
+                await select_interaction.response.send_message("Invalid ID. Please try again.")
 
-        except Exception as e:
-            await interaction.followup.send(f"An error occurred or timeout: {str(e)}")
+        select.callback = select_callback
+
+        view = discord.ui.View()
+        view.add_item(select)
+
+        await interaction.followup.send("Games found:", view=view)
 
     except Exception as e:
+        logging.error(f"Error in add command: {e}")
         await interaction.followup.send(f"An error occurred: {str(e)}")
 
 token = os.getenv("token")
